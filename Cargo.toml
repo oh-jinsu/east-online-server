@@ -1,0 +1,15 @@
+[package]
+name = "east_online_server"
+version = "0.1.0"
+edition = "2021"
+authors = ["ohjinsu@codersproduct.com"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+east_online_core = { version = "0.1.4" }
+tokio = { version = "1.21.2", features = ["full"] }
+futures = { version = "0.3.25" }
+reqwest = { version = "0.11.13", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = { version = "0.9" }
