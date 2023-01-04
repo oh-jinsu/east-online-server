@@ -29,6 +29,7 @@ impl Writer for TcpStream {
                 Ok(n) => {
                     pos += n;
                 }
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
                 Err(e) => return Err(e),
             }
         }

@@ -3,8 +3,8 @@ use std::error::Error;
 use east_online_core::model;
 use east_online_server::{
     env::get_cdn_origin,
-    gate::Keeper,
-    map::{Map, Worker},
+    gate,
+    map::{self, Map},
 };
 use tokio::net::TcpListener;
 
@@ -12,7 +12,7 @@ use tokio::net::TcpListener;
 async fn main() -> Result<(), Box<dyn Error>> {
     let listener = TcpListener::bind("0.0.0.0:3000").await?;
 
-    let keeper = Keeper::new(listener);
+    let gate_worker = gate::Worker::new(listener);
 
     let map_manifest = fetch_map_manifest().await?;
 
@@ -21,14 +21,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         let map = Map::from_model(map);
 
-        let worker = Worker::new(map);
+        let map_worker = map::Worker::new(map);
 
         tokio::spawn(async {
-            let _ = worker.run().await;
+            let _ = map_worker.run().await;
         });
     }
 
-    keeper.run().await
+    gate_worker.run().await
 }
 
 async fn fetch_map_manifest() -> Result<model::MapManifest, Box<dyn Error>> {
