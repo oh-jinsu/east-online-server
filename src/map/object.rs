@@ -3,6 +3,7 @@ use tokio::time;
 
 pub struct Object {
     pub id: Id,
+    pub movable: Option<Movable>,
 }
 
 pub struct Movable {

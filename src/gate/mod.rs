@@ -1,16 +1,16 @@
 use std::error::Error;
 use tokio::net::TcpListener;
 
-pub struct Gatekeeper {
+pub struct Keeper {
     listener: TcpListener,
 }
 
-impl Gatekeeper {
+impl Keeper {
     pub fn new(listener: TcpListener) -> Self {
-        Gatekeeper { listener }
+        Keeper { listener }
     }
 
-    pub async fn keep(&self) -> Result<(), Box<dyn Error>> {
+    pub async fn run(&self) -> Result<(), Box<dyn Error>> {
         loop {}
     }
 }
