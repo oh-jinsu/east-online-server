@@ -1,16 +1,5 @@
-use std::error::Error;
-use tokio::net::TcpListener;
+mod job;
 
-pub struct Keeper {
-    listener: TcpListener,
-}
+mod keeper;
 
-impl Keeper {
-    pub fn new(listener: TcpListener) -> Self {
-        Keeper { listener }
-    }
-
-    pub async fn run(&self) -> Result<(), Box<dyn Error>> {
-        loop {}
-    }
-}
+pub use keeper::Keeper;

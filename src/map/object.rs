@@ -1,4 +1,4 @@
-use east_online_core::models::{Direction, Id};
+use east_online_core::model::{Direction, Id};
 use tokio::time;
 
 pub struct Object {

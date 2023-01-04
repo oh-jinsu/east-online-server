@@ -7,7 +7,7 @@ authors = ["ohjinsu@codersproduct.com"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-east_online_core = { version = "0.1.4" }
+east_online_core = { version = "0.2.2" }
 tokio = { version = "1.21.2", features = ["full"] }
 futures = { version = "0.3.25" }
 reqwest = { version = "0.11.13", features = ["json"] }

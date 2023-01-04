@@ -1,4 +1,4 @@
-use east_online_core::{data, models::Rotation};
+use east_online_core::model::{self, Rotation};
 
 use super::object::Object;
 
@@ -8,9 +8,9 @@ pub struct Tile {
 }
 
 impl Tile {
-    pub fn from_placable(data: data::Placable) -> Self {
+    pub fn from_placable_model(placable: model::Placable) -> Self {
         Tile {
-            rotation: data.rotation,
+            rotation: placable.rotation,
             object: None,
         }
     }

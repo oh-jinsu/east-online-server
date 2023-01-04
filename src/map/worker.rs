@@ -12,7 +12,7 @@ impl Worker {
         Worker { map }
     }
 
-    pub async fn run(&self) -> Result<(), Box<dyn Error>> {
+    pub async fn run(self) -> Result<(), Box<dyn Error>> {
         loop {}
     }
 }

@@ -62,9 +62,9 @@ checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
 
 [[package]]
 name = "east_online_core"
-version = "0.1.4"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcccafacc05089e2d95c59b53384fd046f430d77688ae868c51f9e5dfcba0ae1"
+checksum = "0d07ce6bd2b493c929fa6b1530b0608630f2fafc8969b3f63d9acd6650804523"
 dependencies = [
  "serde",
 ]
