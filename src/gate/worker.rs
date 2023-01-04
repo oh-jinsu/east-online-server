@@ -55,12 +55,16 @@ impl Worker {
     fn handle_job(&mut self, job: Job) -> Result<(), Box<dyn Error>> {
         match job {
             Job::Accept(stream) => {
+                println!("{:?} accepted", stream.peer_addr()?);
+
                 self.streams.push(stream);
 
                 Ok(())
             }
             Job::Drop(i) => {
-                self.streams.remove(i);
+                let stream = self.streams.remove(i);
+
+                println!("{:?} dropped", stream.peer_addr()?);
 
                 Ok(())
             }

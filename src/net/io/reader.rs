@@ -1,4 +1,4 @@
-use std::{error::Error, io};
+use std::io;
 
 use tokio::net::TcpStream;
 
@@ -35,6 +35,6 @@ impl Reader for TcpStream {
         self.try_read_buf(&mut buf)?;
 
         packet::Incoming::deserialize(&mut buf)
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, "error"))
+            .map_err(|err| io::Error::new(io::ErrorKind::Other, err.to_string()))
     }
 }
