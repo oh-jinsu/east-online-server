@@ -10,9 +10,13 @@ pub trait Reader {
 
 impl Reader for TcpStream {
     fn try_read_packet(&self) -> io::Result<packet::Incoming> {
-        let mut buf = vec![0 as u8; 2];
+        let mut buf = Vec::with_capacity(2);
 
         self.try_read_buf(&mut buf)?;
+
+        if buf.len() < 2 {
+            return Err(io::Error::from(io::ErrorKind::UnexpectedEof));
+        }
 
         let size = usize::from(u16::from_le_bytes([buf[0], buf[1]]));
 
@@ -30,7 +34,7 @@ impl Reader for TcpStream {
             ));
         }
 
-        buf.resize(size, 0);
+        let mut buf = Vec::with_capacity(size);
 
         self.try_read_buf(&mut buf)?;
 

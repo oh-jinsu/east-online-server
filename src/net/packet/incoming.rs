@@ -4,6 +4,7 @@ use east_online_core::extension::ByteArray;
 
 #[derive(Debug)]
 pub enum Incoming {
+    Hello { token: String },
     Ping { timestamp: i64 },
 }
 
@@ -18,7 +19,10 @@ impl Incoming {
         let body = &buf[2..];
 
         match serial {
-            1 => {
+            1 => Ok(Self::Hello {
+                token: String::from_utf8_lossy(body).to_string(),
+            }),
+            2 => {
                 if body.len() < 8 {
                     return Err(format!("buffer too short to deserialize, {buf:?}").into());
                 }

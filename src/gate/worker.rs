@@ -2,7 +2,7 @@ use std::{collections::BinaryHeap, error::Error, io};
 use tokio::net::{TcpListener, TcpStream};
 
 use crate::{
-    net::io::Reader,
+    net::{io::Reader, packet},
     schedule::Schedule,
     selector::{ScheduleQueue, Waitings},
 };
@@ -85,11 +85,18 @@ impl Worker {
 
                 Ok(())
             }
-            Job::Incoming(packet) => {
-                println!("{:?}", packet);
+            Job::Incoming(packet) => self.handle_packet(packet),
+        }
+    }
+
+    fn handle_packet(&mut self, packet: packet::Incoming) -> Result<(), Box<dyn Error>> {
+        match packet {
+            packet::Incoming::Hello { token } => {
+                println!("{:?}", token);
 
                 Ok(())
             }
+            _ => Ok(()),
         }
     }
 }
