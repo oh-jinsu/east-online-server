@@ -1,7 +1,10 @@
+use east_online_core::model;
+use reqwest::{header::AUTHORIZATION, StatusCode};
 use std::{collections::BinaryHeap, error::Error, io};
 use tokio::net::{TcpListener, TcpStream};
 
 use crate::{
+    env::{url, API_ORIGIN},
     net::{io::Reader, packet},
     schedule::Schedule,
     selector::{ScheduleQueue, Waitings},
@@ -28,7 +31,7 @@ impl Worker {
         loop {
             let job = self.select_job().await;
 
-            if let Err(e) = self.handle_job(job) {
+            if let Err(e) = self.handle_job(job).await {
                 eprintln!("{e}");
             }
         }
@@ -52,7 +55,7 @@ impl Worker {
         }
     }
 
-    fn handle_job(&mut self, job: Job) -> Result<(), Box<dyn Error>> {
+    async fn handle_job(&mut self, job: Job) -> Result<(), Box<dyn Error>> {
         match job {
             Job::Accept(stream) => {
                 println!("{:?} accepted", stream.peer_addr()?);
@@ -85,16 +88,35 @@ impl Worker {
 
                 Ok(())
             }
-            Job::Incoming(packet) => self.handle_packet(packet),
+            Job::Incoming(packet) => self.handle_packet(packet).await,
         }
     }
 
-    fn handle_packet(&mut self, packet: packet::Incoming) -> Result<(), Box<dyn Error>> {
+    async fn handle_packet(&mut self, packet: packet::Incoming) -> Result<(), Box<dyn Error>> {
         match packet {
             packet::Incoming::Hello { token } => {
-                println!("{:?}", token);
+                let response = reqwest::Client::new()
+                    .get(url(API_ORIGIN, "auth"))
+                    .header(AUTHORIZATION, format!("Bearer {}", token))
+                    .send()
+                    .await?;
 
-                Ok(())
+                match response.status() {
+                    StatusCode::CREATED => {
+                        let token = response.json::<model::Token>().await?;
+
+                        println!("{:?}", token);
+
+                        Ok(())
+                    }
+                    status => {
+                        let text = response.text().await?;
+
+                        println!("{} {}", status, text);
+
+                        Ok(())
+                    }
+                }
             }
             _ => Ok(()),
         }

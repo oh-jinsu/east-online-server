@@ -1,5 +1,9 @@
-pub fn get_cdn_origin() -> String {
-    let key = "CDN_ORIGIN";
+pub const CDN_ORIGIN: &str = "CDN_ORIGIN";
 
-    std::env::var(key).expect(key)
+pub const API_ORIGIN: &str = "API_ORIGIN";
+
+pub fn url(origin: &str, endpoint: &str) -> String {
+    let env = std::env::var(origin).expect(origin);
+
+    format!("{}/{}", env, endpoint)
 }

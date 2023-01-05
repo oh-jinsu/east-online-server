@@ -2,7 +2,7 @@ use std::error::Error;
 
 use east_online_core::model;
 use east_online_server::{
-    env::get_cdn_origin,
+    env::{url, CDN_ORIGIN},
     gate,
     map::{self, Map},
 };
@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn fetch_map_manifest() -> Result<model::MapManifest, Box<dyn Error>> {
-    let response = reqwest::get(format!("{}/maps/manifest.yml", get_cdn_origin())).await?;
+    let response = reqwest::get(url(CDN_ORIGIN, "maps/manifest.yml")).await?;
 
     let bytes = response.bytes().await?;
 
@@ -42,7 +42,7 @@ async fn fetch_map_manifest() -> Result<model::MapManifest, Box<dyn Error>> {
 }
 
 async fn fetch_map(id: &str) -> Result<model::Map, Box<dyn Error>> {
-    let response = reqwest::get(format!("{}/maps/{}.yml", get_cdn_origin(), id)).await?;
+    let response = reqwest::get(url(CDN_ORIGIN, &format!("maps/{}.yml", id))).await?;
 
     let bytes = response.bytes().await?;
 
