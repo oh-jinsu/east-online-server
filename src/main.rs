@@ -2,7 +2,7 @@ use std::error::Error;
 
 use east_online_core::model;
 use east_online_server::{
-    env::{url, CDN_ORIGIN},
+    env::{init, url, CDN_ORIGIN},
     gate,
     map::{self, Map},
 };
@@ -10,6 +10,8 @@ use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    init();
+
     let listener = TcpListener::bind("0.0.0.0:3000").await?;
 
     let gate_worker = gate::Worker::new(listener);
