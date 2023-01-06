@@ -1,36 +1,50 @@
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 
 use east_online_core::model;
 use east_online_server::{
-    env::{init, url, CDN_ORIGIN},
-    gate,
-    map::{self, Map},
+    db::DB,
+    env::{self, url, CDN_ORIGIN},
+    gate, map,
 };
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, sync::mpsc};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    init();
+    env::init();
+
+    let pool = Arc::new(mysql::Pool::init()?);
 
     let listener = TcpListener::bind("0.0.0.0:3000").await?;
 
-    let gate_worker = gate::Worker::new(listener);
+    let mut gate_worker = gate::Worker::new(pool.clone(), listener);
 
     let map_manifest = fetch_map_manifest().await?;
 
     for item in map_manifest.items {
         let map = fetch_map(&item.id).await?;
 
-        let map = Map::from_model(map);
+        let (tx, rx) = mpsc::channel(16);
 
-        let map_worker = map::Worker::new(map);
+        gate_worker.add_sender(&map.id, tx);
 
-        tokio::spawn(async {
-            let _ = map_worker.run().await;
+        let map_worker = map::Worker::from_map(map, pool.clone(), rx);
+
+        tokio::spawn(async move {
+            let id = map_worker.id.clone();
+
+            if let Err(e) = map_worker.run().await {
+                eprintln!("{} worker died for {e}", id);
+            }
         });
     }
 
-    gate_worker.run().await
+    println!("open gate");
+
+    if let Err(e) = gate_worker.run().await {
+        eprintln!("gate worker died for {e}");
+    }
+
+    Ok(())
 }
 
 async fn fetch_map_manifest() -> Result<model::MapManifest, Box<dyn Error>> {

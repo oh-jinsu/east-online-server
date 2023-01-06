@@ -4,7 +4,8 @@ use crate::net::packet;
 
 pub enum Job {
     Accept(TcpStream),
-    Drop(usize),
+    Drop(usize, String),
     Readable(usize),
-    Incoming(packet::Incoming),
+    Incoming(usize, packet::Incoming),
+    Send(usize, String, String),
 }

@@ -1,7 +1,16 @@
 use east_online_core::model;
+use mysql::{params, prelude::*};
 use reqwest::{header::AUTHORIZATION, StatusCode};
-use std::{collections::BinaryHeap, error::Error, io};
-use tokio::net::{TcpListener, TcpStream};
+use std::{
+    collections::{BinaryHeap, HashMap},
+    error::Error,
+    io,
+    sync::Arc,
+};
+use tokio::{
+    net::{TcpListener, TcpStream},
+    sync::mpsc,
+};
 
 use crate::{
     env::{url, API_ORIGIN},
@@ -12,19 +21,29 @@ use crate::{
 
 use super::job::Job;
 
+type Sender = mpsc::Sender<(TcpStream, String)>;
+
 pub struct Worker {
     listener: TcpListener,
     streams: Vec<TcpStream>,
     schedule_queue: BinaryHeap<Schedule<Job>>,
+    db: Arc<mysql::Pool>,
+    senders: HashMap<String, Sender>,
 }
 
 impl Worker {
-    pub fn new(listener: TcpListener) -> Self {
+    pub fn new(db: Arc<mysql::Pool>, listener: TcpListener) -> Self {
         Worker {
             listener,
             streams: Vec::new(),
             schedule_queue: BinaryHeap::new(),
+            db,
+            senders: HashMap::new(),
         }
+    }
+
+    pub fn add_sender(&mut self, key: &str, sender: Sender) {
+        self.senders.insert(key.to_string(), sender);
     }
 
     pub async fn run(mut self) -> Result<(), Box<dyn Error>> {
@@ -55,6 +74,11 @@ impl Worker {
         }
     }
 
+    /**
+     * Handle a scheduled job.
+     *
+     * Throw an error if something goes wrong with itself.
+     */
     async fn handle_job(&mut self, job: Job) -> Result<(), Box<dyn Error>> {
         match job {
             Job::Accept(stream) => {
@@ -64,35 +88,58 @@ impl Worker {
 
                 Ok(())
             }
-            Job::Drop(i) => {
-                let stream = self.streams.remove(i);
+            Job::Drop(index, reason) => {
+                let stream = self.streams.remove(index);
 
-                println!("{:?} dropped", stream.peer_addr()?);
+                println!("{:?} dropped for {}", stream.peer_addr()?, reason);
 
                 Ok(())
             }
-            Job::Readable(i) => {
-                let stream = self.streams.get(i).ok_or("stream not found")?;
+            Job::Readable(index) => {
+                let stream = self.streams.get(index).ok_or("stream not found")?;
 
                 let schedule = match stream.try_read_packet() {
-                    Ok(packet) => Schedule::instant(Job::Incoming(packet)),
+                    Ok(packet) => Schedule::instant(Job::Incoming(index, packet)),
                     Err(e) if e.kind() == io::ErrorKind::WouldBlock => return Ok(()),
-                    Err(e) => {
-                        eprintln!("{e}");
-
-                        Schedule::instant(Job::Drop(i))
-                    }
+                    Err(e) => Schedule::instant(Job::Drop(index, format!("{e}"))),
                 };
 
                 self.schedule_queue.push(schedule);
 
                 Ok(())
             }
-            Job::Incoming(packet) => self.handle_packet(packet).await,
+            Job::Incoming(index, packet) => {
+                if let Err(e) = self.handle_packet(index, packet).await {
+                    let schedule = Schedule::instant(Job::Drop(index, format!("{e}")));
+
+                    self.schedule_queue.push(schedule);
+                }
+
+                Ok(())
+            }
+            Job::Send(index, id, sender_id) => {
+                let stream = self.streams.remove(index);
+
+                if let Some(sender) = self.senders.get(&sender_id) {
+                    sender.send((stream, id)).await?;
+                }
+
+                Ok(())
+            }
         }
     }
 
-    async fn handle_packet(&mut self, packet: packet::Incoming) -> Result<(), Box<dyn Error>> {
+    /**
+     * Handle a incoming packet from a stream.
+     *
+     * Throw an error if something went wrong with the stream.
+     * The stream is going to be dropped immediately.
+     */
+    async fn handle_packet(
+        &mut self,
+        index: usize,
+        packet: packet::Incoming,
+    ) -> Result<(), Box<dyn Error>> {
         match packet {
             packet::Incoming::Hello { token } => {
                 let response = reqwest::Client::new()
@@ -105,17 +152,36 @@ impl Worker {
                     StatusCode::CREATED => {
                         let token = response.json::<model::Token>().await?;
 
-                        println!("{:?}", token);
+                        let mut conn = self.db.get_conn()?;
+
+                        let user_id: String = match conn
+                            .exec_first(
+                                "SELECT id FROM users WHERE id = :id",
+                                mysql::params! { "id" => token.id },
+                            )?
+                            .map(|id| id)
+                        {
+                            Some(user_id) => user_id,
+                            None => return Err("user not found".into()),
+                        };
+
+                        let map_id: String = conn
+                            .exec_first(
+                                "SELECT map_id FROM locations WHERE id = :id",
+                                mysql::params! { "id" => user_id.clone() },
+                            )?
+                            .map(|map_id| map_id)
+                            .unwrap_or(String::from("map_0000"));
+
+                        let job = Job::Send(index, user_id, map_id);
+
+                        let schedule = Schedule::instant(job);
+
+                        self.schedule_queue.push(schedule);
 
                         Ok(())
                     }
-                    status => {
-                        let text = response.text().await?;
-
-                        println!("{} {}", status, text);
-
-                        Ok(())
-                    }
+                    _ => Err(response.text().await?.into()),
                 }
             }
             _ => Ok(()),

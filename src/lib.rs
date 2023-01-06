@@ -1,5 +1,7 @@
 pub mod env;
 
+pub mod db;
+
 pub mod net;
 
 pub mod gate;
