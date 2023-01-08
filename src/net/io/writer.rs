@@ -1,6 +1,4 @@
-use std::{error::Error, io};
-
-use tokio::net::TcpStream;
+use std::error::Error;
 
 use crate::net::packet;
 
