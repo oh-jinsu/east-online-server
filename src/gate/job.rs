@@ -7,5 +7,9 @@ pub enum Job {
     Drop(usize, String),
     Readable(usize),
     Incoming(usize, packet::Incoming),
-    Send(usize, String, String),
+    Send {
+        index: usize,
+        user_id: String,
+        map_id: String,
+    },
 }

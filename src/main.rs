@@ -25,21 +25,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for item in map_manifest.items {
         let map = fetch_map(&item.id).await?;
 
+        let map_id = map.id.clone();
+
         let (enter_tx, enter_rx) = mpsc::channel(16);
 
         let (exit_tx, exit_rx) = mpsc::channel(16);
 
-        gate_worker.add_channel(&map.id, (enter_tx, exit_rx));
+        gate_worker.add_channel(&map_id, (enter_tx, exit_rx));
 
-        println!("create worker, {}", &map.id);
+        println!("create worker, {}", &map_id);
 
         let map_worker = map::Worker::from_map(map, pool.clone(), (exit_tx, enter_rx));
 
         tokio::spawn(async move {
-            let id = map_worker.id.clone();
-
             if let Err(e) = map_worker.run().await {
-                eprintln!("{} worker died for {e}", id);
+                eprintln!("{} worker died for {e}", map_id);
             }
         });
     }

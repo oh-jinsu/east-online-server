@@ -84,7 +84,7 @@ impl Worker {
     async fn handle_job(&mut self, job: Job) -> Result<(), Box<dyn Error>> {
         match job {
             Job::Accept(stream) => {
-                println!("{:?} accepted", stream.peer_addr()?);
+                println!("{:?} accepted by gate", stream.peer_addr()?);
 
                 self.streams.push(stream);
 
@@ -119,11 +119,17 @@ impl Worker {
 
                 Ok(())
             }
-            Job::Send(index, id, sender_id) => {
+            Job::Send {
+                index,
+                user_id,
+                map_id,
+            } => {
                 let stream = self.streams.remove(index);
 
-                if let Some((sender, _)) = self.channels.get(&sender_id) {
-                    sender.send((stream, id, Vector3 { x:0, y:0, z:0 })).await?;
+                if let Some((sender, _)) = self.channels.get(&map_id) {
+                    sender
+                        .send((stream, user_id, Vector3 { x: 0, y: 0, z: 0 }))
+                        .await?;
                 }
 
                 Ok(())
@@ -175,7 +181,11 @@ impl Worker {
                             .map(|map_id| map_id)
                             .unwrap_or(String::from("map_0000"));
 
-                        let job = Job::Send(index, user_id, map_id);
+                        let job = Job::Send {
+                            index,
+                            user_id,
+                            map_id,
+                        };
 
                         let schedule = Schedule::instant(job);
 

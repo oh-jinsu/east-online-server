@@ -11,10 +11,7 @@ impl<T> Schedule<T> {
     }
 
     pub fn instant(job: T) -> Self {
-        Schedule {
-            job,
-            deadline: time::Instant::now(),
-        }
+        Schedule::new(job, time::Instant::now())
     }
 }
 

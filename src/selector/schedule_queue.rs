@@ -10,6 +10,8 @@ pub trait ScheduleQueue<T>
 where
     T: Sync + Send,
 {
+    fn new() -> Self;
+
     fn is_first_urgent(&self) -> bool;
 
     async fn wait_for_first(&self) -> Result<(), Box<dyn Error>>;
@@ -20,6 +22,10 @@ impl<T> ScheduleQueue<T> for BinaryHeap<Schedule<T>>
 where
     T: Sync + Send,
 {
+    fn new() -> Self {
+        BinaryHeap::new()
+    }
+
     fn is_first_urgent(&self) -> bool {
         if self.is_empty() {
             return false;
