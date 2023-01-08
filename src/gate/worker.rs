@@ -1,4 +1,4 @@
-use east_online_core::model;
+use east_online_core::model::{self, Vector3};
 use mysql::{params, prelude::*};
 use reqwest::{header::AUTHORIZATION, StatusCode};
 use std::{
@@ -21,14 +21,16 @@ use crate::{
 
 use super::job::Job;
 
-type Sender = mpsc::Sender<(TcpStream, String)>;
+type Receiver = mpsc::Receiver<(TcpStream, String, Vector3)>;
+
+type Sender = mpsc::Sender<(TcpStream, String, Vector3)>;
 
 pub struct Worker {
     listener: TcpListener,
     streams: Vec<TcpStream>,
     schedule_queue: BinaryHeap<Schedule<Job>>,
     db: Arc<mysql::Pool>,
-    senders: HashMap<String, Sender>,
+    channels: HashMap<String, (Sender, Receiver)>,
 }
 
 impl Worker {
@@ -38,12 +40,12 @@ impl Worker {
             streams: Vec::new(),
             schedule_queue: BinaryHeap::new(),
             db,
-            senders: HashMap::new(),
+            channels: HashMap::new(),
         }
     }
 
-    pub fn add_sender(&mut self, key: &str, sender: Sender) {
-        self.senders.insert(key.to_string(), sender);
+    pub fn add_channel(&mut self, key: &str, channel: (Sender, Receiver)) {
+        self.channels.insert(key.to_string(), channel);
     }
 
     pub async fn run(mut self) -> Result<(), Box<dyn Error>> {
@@ -120,8 +122,8 @@ impl Worker {
             Job::Send(index, id, sender_id) => {
                 let stream = self.streams.remove(index);
 
-                if let Some(sender) = self.senders.get(&sender_id) {
-                    sender.send((stream, id)).await?;
+                if let Some((sender, _)) = self.channels.get(&sender_id) {
+                    sender.send((stream, id, Vector3 { x:0, y:0, z:0 })).await?;
                 }
 
                 Ok(())

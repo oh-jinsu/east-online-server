@@ -16,6 +16,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let listener = TcpListener::bind("0.0.0.0:3000").await?;
 
+    println!("fetch manifest");
+
     let mut gate_worker = gate::Worker::new(pool.clone(), listener);
 
     let map_manifest = fetch_map_manifest().await?;
@@ -23,11 +25,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for item in map_manifest.items {
         let map = fetch_map(&item.id).await?;
 
-        let (tx, rx) = mpsc::channel(16);
+        let (enter_tx, enter_rx) = mpsc::channel(16);
 
-        gate_worker.add_sender(&map.id, tx);
+        let (exit_tx, exit_rx) = mpsc::channel(16);
 
-        let map_worker = map::Worker::from_map(map, pool.clone(), rx);
+        gate_worker.add_channel(&map.id, (enter_tx, exit_rx));
+
+        println!("create worker, {}", &map.id);
+
+        let map_worker = map::Worker::from_map(map, pool.clone(), (exit_tx, enter_rx));
 
         tokio::spawn(async move {
             let id = map_worker.id.clone();
