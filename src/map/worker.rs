@@ -111,7 +111,6 @@ impl Worker {
 
                     let packet = packet::Outgoing::Hello {
                         map_id: self.id.to_owned(),
-                        position,
                         users,
                     };
 
