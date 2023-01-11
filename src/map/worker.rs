@@ -230,7 +230,7 @@ impl Worker {
                             z: position.z + 1,
                         },
                         Direction::Right => Vector3 {
-                            x: position.x + 1,
+                            x: position.x - 1,
                             y: position.y,
                             z: position.z,
                         },
@@ -240,7 +240,7 @@ impl Worker {
                             z: position.z - 1,
                         },
                         Direction::Left => Vector3 {
-                            x: position.x - 1,
+                            x: position.x + 1,
                             y: position.y,
                             z: position.z,
                         },
