@@ -29,13 +29,11 @@ impl Incoming {
                     2 => Direction::Right,
                     3 => Direction::Down,
                     4 => Direction::Left,
-                    _ => return Err("unknown direction".into())
+                    _ => return Err("unknown direction".into()),
                 };
 
-                Ok(Self::Move {
-                    direction
-                })
-            },
+                Ok(Self::Move { direction })
+            }
             n => Err(format!("unexpected packet arrived, {n:?}").into()),
         }
     }

@@ -1,4 +1,4 @@
-use east_online_core::model::{self, Vector3, Direction};
+use east_online_core::model::{self, Direction, Vector3};
 use tokio::{net::TcpStream, sync::mpsc, time};
 
 use crate::{
@@ -206,30 +206,52 @@ impl Worker {
             Job::Move(key, duration) => {
                 let (_, position) = self.streams.get_mut(&key).ok_or("no stream")?;
 
-                let next = {                    
+                let next = {
                     let current_tile = self.map.get(position).ok_or("no tile")?;
 
                     let actor = current_tile.actors.get(&key).ok_or("no actor")?;
 
                     match actor.movable.direction {
                         Direction::Idle => {
-                            let packet = packet::Outgoing::Stop { id: key.to_owned(), position: position.to_owned() };
+                            let packet = packet::Outgoing::Stop {
+                                id: key.to_owned(),
+                                position: position.to_owned(),
+                            };
 
                             let schedule = Schedule::instant(Job::Broadcast(packet));
 
                             self.schedule_queue.push(schedule);
 
                             return Ok(());
+                        }
+                        Direction::Up => Vector3 {
+                            x: position.x,
+                            y: position.y,
+                            z: position.z + 1,
                         },
-                        Direction::Up => Vector3 { x: position.x, y: position.y, z: position.z + 1 },
-                        Direction::Right => Vector3 { x: position.x + 1, y: position.y, z: position.z },
-                        Direction::Down => Vector3 { x: position.x, y: position.y, z: position.z - 1 },
-                        Direction::Left => Vector3 { x: position.x - 1, y: position.y, z: position.z },
+                        Direction::Right => Vector3 {
+                            x: position.x + 1,
+                            y: position.y,
+                            z: position.z,
+                        },
+                        Direction::Down => Vector3 {
+                            x: position.x,
+                            y: position.y,
+                            z: position.z - 1,
+                        },
+                        Direction::Left => Vector3 {
+                            x: position.x - 1,
+                            y: position.y,
+                            z: position.z,
+                        },
                     }
                 };
 
                 if let None = self.map.get(&next) {
-                    let packet = packet::Outgoing::Stop { id: key.to_owned(), position: position.to_owned() };
+                    let packet = packet::Outgoing::Stop {
+                        id: key.to_owned(),
+                        position: position.to_owned(),
+                    };
 
                     let schedule = Schedule::instant(Job::Broadcast(packet));
 
@@ -238,24 +260,40 @@ impl Worker {
                     return Ok(());
                 }
 
-                let mut actor = self.map.get_mut(position).ok_or("no actor")?.actors.remove(&key).ok_or("no actor")?;
-                        
+                let mut actor = self
+                    .map
+                    .get_mut(position)
+                    .ok_or("no actor")?
+                    .actors
+                    .remove(&key)
+                    .ok_or("no actor")?;
+
                 actor.movable.moved_at = time::Instant::now();
 
-                self.map.get_mut(&next).unwrap().actors.insert(key.to_owned(), actor);
+                self.map
+                    .get_mut(&next)
+                    .unwrap()
+                    .actors
+                    .insert(key.to_owned(), actor);
 
                 *position = next.to_owned();
 
-                let packet = packet::Outgoing::Move { id: key.to_owned(), position: next.to_owned(), duration };
+                let packet = packet::Outgoing::Move {
+                    id: key.to_owned(),
+                    position: next.to_owned(),
+                    duration,
+                };
 
-                self.schedule_queue.push(Schedule::instant(Job::Broadcast(packet)));
+                self.schedule_queue
+                    .push(Schedule::instant(Job::Broadcast(packet)));
 
                 let deadline = time::Instant::now() + duration;
 
-                self.schedule_queue.push(Schedule::new(Job::Move(key, duration), deadline));
+                self.schedule_queue
+                    .push(Schedule::new(Job::Move(key, duration), deadline));
 
                 Ok(())
-            },
+            }
         }
     }
 
@@ -284,15 +322,13 @@ impl Worker {
 
                 let duration = time::Duration::from_millis(300);
 
-                if actor.movable.moved_at + duration > time::Instant::now() {
-                    return Ok(());
-                }
-
                 let last_direction = actor.movable.direction;
 
                 actor.movable.direction = direction;
 
-                if last_direction != Direction::Idle {
+                let is_cool = actor.movable.moved_at + duration > time::Instant::now();
+
+                if is_cool || direction == Direction::Idle || last_direction != Direction::Idle {
                     return Ok(());
                 }
 
@@ -301,8 +337,8 @@ impl Worker {
                 self.schedule_queue.push(Schedule::instant(job));
 
                 Ok(())
-            },
-            _ => Ok(())
+            }
+            _ => Ok(()),
         }
     }
 }
