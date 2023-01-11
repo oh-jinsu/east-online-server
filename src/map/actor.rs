@@ -2,14 +2,14 @@ use tokio::time;
 
 use east_online_core::model::Direction;
 
-pub struct Person {
+pub struct Actor {
     pub id: String,
     pub movable: Movable,
 }
 
-impl Person {
+impl Actor {
     pub fn new(id: String) -> Self {
-        Person {
+        Actor {
             id,
             movable: Movable::new(),
         }
@@ -18,14 +18,14 @@ impl Person {
 
 pub struct Movable {
     pub direction: Direction,
-    pub updated_at: Option<time::Instant>,
+    pub moved_at: time::Instant,
 }
 
 impl Movable {
     pub fn new() -> Self {
         Movable {
             direction: Direction::Idle,
-            updated_at: None,
+            moved_at: time::Instant::now(),
         }
     }
 }

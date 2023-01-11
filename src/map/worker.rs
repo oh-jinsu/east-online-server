@@ -1,8 +1,8 @@
-use east_online_core::model::{self, Vector3};
-use tokio::{net::TcpStream, sync::mpsc};
+use east_online_core::model::{self, Vector3, Direction};
+use tokio::{net::TcpStream, sync::mpsc, time};
 
 use crate::{
-    map::Person,
+    map::Actor,
     net::{
         io::{get_packet_buf, Reader},
         packet,
@@ -97,9 +97,9 @@ impl Worker {
                 if let Some(tile) = self.map.get_mut(&position) {
                     println!("{:?} accepted by {}", stream.peer_addr()?, self.id);
 
-                    let person = Person::new(id.to_owned());
+                    let person = Actor::new(id.to_owned());
 
-                    tile.people.insert(id.to_owned(), person);
+                    tile.actors.insert(id.to_owned(), person);
 
                     self.streams.insert(id.clone(), (stream, position));
 
@@ -110,8 +110,9 @@ impl Worker {
                         .collect();
 
                     let packet = packet::Outgoing::Hello {
+                        id: id.to_owned(),
                         map_id: self.id.to_owned(),
-                        users,
+                        actors: users,
                     };
 
                     let schedule = Schedule::instant(Job::Write(id, packet));
@@ -126,7 +127,7 @@ impl Worker {
             Job::Drop(key, reason) => {
                 if let Some((stream, position)) = self.streams.remove(&key) {
                     if let Some(tile) = self.map.get_mut(&position) {
-                        tile.people.remove(&key);
+                        tile.actors.remove(&key);
                     }
 
                     let addr = stream.peer_addr()?;
@@ -202,6 +203,59 @@ impl Worker {
 
                 Ok(())
             }
+            Job::Move(key, duration) => {
+                let (_, position) = self.streams.get_mut(&key).ok_or("no stream")?;
+
+                let next = {                    
+                    let current_tile = self.map.get(position).ok_or("no tile")?;
+
+                    let actor = current_tile.actors.get(&key).ok_or("no actor")?;
+
+                    match actor.movable.direction {
+                        Direction::Idle => {
+                            let packet = packet::Outgoing::Stop { id: key.to_owned(), position: position.to_owned() };
+
+                            let schedule = Schedule::instant(Job::Broadcast(packet));
+
+                            self.schedule_queue.push(schedule);
+
+                            return Ok(());
+                        },
+                        Direction::Up => Vector3 { x: position.x, y: position.y, z: position.z + 1 },
+                        Direction::Right => Vector3 { x: position.x + 1, y: position.y, z: position.z },
+                        Direction::Down => Vector3 { x: position.x, y: position.y, z: position.z - 1 },
+                        Direction::Left => Vector3 { x: position.x - 1, y: position.y, z: position.z },
+                    }
+                };
+
+                if let None = self.map.get(&next) {
+                    let packet = packet::Outgoing::Stop { id: key.to_owned(), position: position.to_owned() };
+
+                    let schedule = Schedule::instant(Job::Broadcast(packet));
+
+                    self.schedule_queue.push(schedule);
+
+                    return Ok(());
+                }
+
+                let mut actor = self.map.get_mut(position).ok_or("no actor")?.actors.remove(&key).ok_or("no actor")?;
+                        
+                actor.movable.moved_at = time::Instant::now();
+
+                self.map.get_mut(&next).unwrap().actors.insert(key.to_owned(), actor);
+
+                *position = next.to_owned();
+
+                let packet = packet::Outgoing::Move { id: key.to_owned(), position: next.to_owned(), duration };
+
+                self.schedule_queue.push(Schedule::instant(Job::Broadcast(packet)));
+
+                let deadline = time::Instant::now() + duration;
+
+                self.schedule_queue.push(Schedule::new(Job::Move(key, duration), deadline));
+
+                Ok(())
+            },
         }
     }
 
@@ -216,6 +270,39 @@ impl Worker {
         key: String,
         packet: packet::Incoming,
     ) -> Result<(), Box<dyn Error>> {
-        Ok(())
+        match packet {
+            packet::Incoming::Move { direction } => {
+                let (_, position) = self.streams.get(&key).ok_or("no stream")?;
+
+                let tile = self.map.get_mut(position).ok_or("no tile")?;
+
+                let actor = tile.actors.get_mut(&key).ok_or("no actor")?;
+
+                if actor.movable.direction == direction {
+                    return Ok(());
+                }
+
+                let duration = time::Duration::from_millis(300);
+
+                if actor.movable.moved_at + duration > time::Instant::now() {
+                    return Ok(());
+                }
+
+                let last_direction = actor.movable.direction;
+
+                actor.movable.direction = direction;
+
+                if last_direction != Direction::Idle {
+                    return Ok(());
+                }
+
+                let job = Job::Move(key, duration);
+
+                self.schedule_queue.push(Schedule::instant(job));
+
+                Ok(())
+            },
+            _ => Ok(())
+        }
     }
 }

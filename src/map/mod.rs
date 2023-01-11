@@ -2,9 +2,9 @@ mod object;
 
 pub use object::Object;
 
-mod person;
+mod actor;
 
-pub use person::Person;
+pub use actor::Actor;
 
 mod tile;
 

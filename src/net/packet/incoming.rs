@@ -1,11 +1,11 @@
 use std::error::Error;
 
-use east_online_core::extension::ByteArray;
+use east_online_core::model::Direction;
 
 #[derive(Debug)]
 pub enum Incoming {
     Hello { token: String },
-    Ping { timestamp: i64 },
+    Move { direction: Direction },
 }
 
 impl Incoming {
@@ -23,14 +23,19 @@ impl Incoming {
                 token: String::from_utf8_lossy(body).to_string(),
             }),
             2 => {
-                if body.len() < 8 {
-                    return Err(format!("buffer too short to deserialize, {buf:?}").into());
-                }
+                let direction = match &body[0] {
+                    0 => Direction::Idle,
+                    1 => Direction::Up,
+                    2 => Direction::Right,
+                    3 => Direction::Down,
+                    4 => Direction::Left,
+                    _ => return Err("unknown direction".into())
+                };
 
-                Ok(Self::Ping {
-                    timestamp: i64::from_le_bytes(body.clone_into_array()),
+                Ok(Self::Move {
+                    direction
                 })
-            }
+            },
             n => Err(format!("unexpected packet arrived, {n:?}").into()),
         }
     }

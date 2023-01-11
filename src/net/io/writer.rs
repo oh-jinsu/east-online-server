@@ -3,7 +3,7 @@ use std::error::Error;
 use crate::net::packet;
 
 pub fn get_packet_buf(packet: packet::Outgoing) -> Result<Vec<u8>, Box<dyn Error>> {
-    let buf = packet.serialize();
+    let buf = packet.serialize()?;
 
     let size: u16 = match buf.len().try_into() {
         Ok(size) => size,

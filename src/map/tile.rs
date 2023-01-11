@@ -2,12 +2,12 @@ use std::collections::HashMap;
 
 use east_online_core::model::{self, Rotation};
 
-use super::{object::Object, Person};
+use super::{object::Object, Actor};
 
 pub struct Tile {
     pub rotation: Rotation,
     pub object: Option<Object>,
-    pub people: HashMap<String, Person>,
+    pub actors: HashMap<String, Actor>,
 }
 
 impl Tile {
@@ -15,7 +15,7 @@ impl Tile {
         Tile {
             rotation: placable.rotation,
             object: None,
-            people: HashMap::new(),
+            actors: HashMap::new(),
         }
     }
 }

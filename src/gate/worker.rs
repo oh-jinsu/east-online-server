@@ -53,7 +53,7 @@ impl Worker {
             let job = self.select_job().await;
 
             if let Err(e) = self.handle_job(job).await {
-                eprintln!("{e}");
+                eprintln!("job failed for {e}");
             }
         }
     }
@@ -150,11 +150,15 @@ impl Worker {
     ) -> Result<(), Box<dyn Error>> {
         match packet {
             packet::Incoming::Hello { token } => {
+                println!("request with token");
+
                 let response = reqwest::Client::new()
                     .get(url(API_ORIGIN, "auth"))
                     .header(AUTHORIZATION, format!("Bearer {}", token))
                     .send()
                     .await?;
+
+                println!("response");
 
                 match response.status() {
                     StatusCode::CREATED => {
@@ -190,6 +194,8 @@ impl Worker {
                         let schedule = Schedule::instant(job);
 
                         self.schedule_queue.push(schedule);
+
+                        println!("send");
 
                         Ok(())
                     }
